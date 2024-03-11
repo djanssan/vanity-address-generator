@@ -36,14 +36,20 @@ std::string derivePublicKey(const std::string& privateKey) {
     for (int i = 0; i < 32; ++i) {
         privateKeyBytes[i] = static_cast<unsigned char>(std::stoi(privateKey.substr(i * 2, 2), nullptr, 16));
     }
-    secp256k1_ec_pubkey_create(ctx, &pubkey, privateKeyBytes);
+    
+    // Add error handling for secp256k1_ec_pubkey_create
+    if (!secp256k1_ec_pubkey_create(ctx, &pubkey, privateKeyBytes)) {
+        // Handle error
+        secp256k1_context_destroy(ctx);
+        return "";
+    }
+    
     unsigned char publicKey[65];
     size_t pubkeyLen = 65;
     secp256k1_ec_pubkey_serialize(ctx, publicKey, &pubkeyLen, &pubkey, SECP256K1_EC_UNCOMPRESSED);
     secp256k1_context_destroy(ctx);
     return toHex(publicKey, 65);
 }
-
 
 std::string deriveEthereumAddress(const std::string& publicKey) {
     unsigned char publicKeyBytes[65];
