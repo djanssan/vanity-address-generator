@@ -1,7 +1,7 @@
 Get the wallet of your dream with the Vanity Address Generator for Ethereum.
 
 
-This is a simple C++ program that generates Ethereum addresses with a given prefix. It uses the secp256k1 library for the elliptic curve operations and the OpenSSL library for the hashing operations. The program is multi-threaded and can generate addresses with a speed of 1.5 million addresses per second on a modern CPU.
+This is a simple C++ program that generates Ethereum addresses with a given prefix. It uses the secp256k1 library for the elliptic curve operations and the OpenSSL library for the hashing operations. The program is multi-threaded and can generate addresses with a speed of 80 thousand addresses per second on a modern CPU.
 
 Virtual Machine:
 
