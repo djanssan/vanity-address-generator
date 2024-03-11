@@ -7,7 +7,7 @@
 #include <openssl/evp.h>
 
 std::string toHex(const unsigned char* data, size_t length) {
-    std::stringstream ss;vanity
+    std::stringstream ss;
     for (size_t i = 0; i < length; ++i) {
         ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(data[i]);
     }
