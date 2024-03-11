@@ -36,20 +36,18 @@ std::string derivePublicKey(const std::string& privateKey) {
     for (int i = 0; i < 32; ++i) {
         privateKeyBytes[i] = static_cast<unsigned char>(std::stoi(privateKey.substr(i * 2, 2), nullptr, 16));
     }
-    
-    // Add error handling for secp256k1_ec_pubkey_create
     if (!secp256k1_ec_pubkey_create(ctx, &pubkey, privateKeyBytes)) {
-        // Handle error
+        // Handle the error case
         secp256k1_context_destroy(ctx);
-        return "";
+        throw std::runtime_error("Failed to create public key");
     }
-    
     unsigned char publicKey[65];
     size_t pubkeyLen = 65;
     secp256k1_ec_pubkey_serialize(ctx, publicKey, &pubkeyLen, &pubkey, SECP256K1_EC_UNCOMPRESSED);
     secp256k1_context_destroy(ctx);
     return toHex(publicKey, 65);
 }
+
 
 std::string deriveEthereumAddress(const std::string& publicKey) {
     unsigned char publicKeyBytes[65];
@@ -88,7 +86,7 @@ std::atomic<bool> found(false);
 std::atomic<unsigned long long> count(0);
 std::string foundPrivateKey;
 std::string foundAddress;
-std::string prefix = "0x00000000";
+std::string prefix = "0x0000000";
 
 void searchVanityAddress() {
     while (!found) {
@@ -110,40 +108,42 @@ int main() {
     auto start = std::chrono::steady_clock::now();
     auto lastUpdate = start;
 
-    std::vector<std::thread> threads;
-    for (int i = 0; i < 32; ++i) {
-        threads.emplace_back(searchVanityAddress);
-    }
+   std::vector<std::thread> threads;
+for (int i = 0; i < 32; ++i) {
+    threads.emplace_back(searchVanityAddress);
+}
 
-    while (!found) {
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count();
+while (!found) {
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count();
 
-        if (elapsed >= 1) {
-            auto totalElapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
-            if (totalElapsed > 0) {
-                std::cout << "Addresses checked per second: " << count / totalElapsed << std::endl;
-            }
-            lastUpdate = now;
+    if (elapsed >= 1) {
+        auto totalElapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
+        if (totalElapsed > 0) {
+            unsigned long long addressesChecked = count.load();
+            unsigned long long aps = addressesChecked / totalElapsed;
+            std::cout << "Checked: " << addressesChecked << ", APS: " << aps << std::endl;
         }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        lastUpdate = now;
     }
 
-    for (auto& thread : threads) {
-        thread.join();
-    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+}
 
-    if (found) {
-        std::cout << "Private Key: " << foundPrivateKey << std::endl;
-        std::cout << "Vanity Address: " << foundAddress << std::endl;
-    }
+for (auto& thread : threads) {
+    thread.join();
+}
 
-    auto end = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
-    if (elapsed > 0) {
-        std::cout << "Final rate: Addresses checked per second: " << count / elapsed << std::endl;
-    }
+if (found) {
+    std::cout << "Private Key: " << foundPrivateKey << std::endl;
+    std::cout << "Vanity Address: " << foundAddress << std::endl;
+}
 
-    return 0;
+auto end = std::chrono::steady_clock::now();
+auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
+if (elapsed > 0) {
+    std::cout << "Final rate: Addresses checked per second: " << count / elapsed << std::endl;
+}
+
+return 0;
 }
