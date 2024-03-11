@@ -5,6 +5,9 @@
 #include <chrono>
 #include <secp256k1.h>
 #include <openssl/evp.h>
+#include <thread>
+#include <atomic>
+#include <vector>
 
 std::string toHex(const unsigned char* data, size_t length) {
     std::stringstream ss;
@@ -75,33 +78,61 @@ std::string deriveEthereumAddress(const std::string& publicKey) {
 }
 
 
-int main() {
-    std::string prefix = "0x00000000";
-    unsigned long long count = 0; // Count of iterations
-    auto start = std::chrono::steady_clock::now(); // Start time
+std::atomic<bool> found(false);
+std::atomic<unsigned long long> count(0);
+std::string foundPrivateKey;
+std::string foundAddress;
+std::string prefix = "0x00000000";
 
-    while (true) {
+void searchVanityAddress() {
+    while (!found) {
         std::string privateKey = generatePrivateKey();
         std::string publicKey = derivePublicKey(privateKey);
         std::string address = deriveEthereumAddress(publicKey);
-        ++count; // Increment count
+        ++count;
+
         if (address.substr(0, prefix.length()) == prefix) {
-            std::cout << "Private Key: " << privateKey << std::endl;
-            std::cout << "Vanity Address: " << address << std::endl;
+            found = true;
+            foundPrivateKey = privateKey;
+            foundAddress = address;
             break;
         }
-        
-        // Optionally, you can display the rate periodically (e.g., every 10,000 iterations)
-        if (count % 10000 == 0) {
-            auto end = std::chrono::steady_clock::now(); // Current time
-            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
-            if (elapsed > 0) { // Prevent division by zero
-                std::cout << "Addresses checked per second: " << count / elapsed << std::endl;
-            }
-        }
+    }
+}
+
+int main() {
+    auto start = std::chrono::steady_clock::now();
+    auto lastUpdate = start;
+
+    std::vector<std::thread> threads;
+    for (int i = 0; i < 32; ++i) {
+        threads.emplace_back(searchVanityAddress);
     }
 
-    // Final rate display
+    while (!found) {
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count();
+
+        if (elapsed >= 1) {
+            auto totalElapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
+            if (totalElapsed > 0) {
+                std::cout << "Addresses checked per second: " << count / totalElapsed << std::endl;
+            }
+            lastUpdate = now;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    if (found) {
+        std::cout << "Private Key: " << foundPrivateKey << std::endl;
+        std::cout << "Vanity Address: " << foundAddress << std::endl;
+    }
+
     auto end = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
     if (elapsed > 0) {
